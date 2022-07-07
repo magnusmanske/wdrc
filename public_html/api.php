@@ -63,7 +63,7 @@ $wdrc = new WDRC ;
 
 $out = [] ;
 $action = $wdrc->tfc->getRequest ( 'action' , '' ) ;
-$format = $wdrc->tfc->getRequest ( 'format' , 'json' ) ;
+$format = $wdrc->tfc->getRequest ( 'format' , 'jsonl' ) ;
 if ( $format == 'jsonl' ) header('Content-type: text/plain');
 if ( $format == 'html' ) header('Content-type: text/html');
 
