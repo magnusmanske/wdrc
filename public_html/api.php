@@ -8,8 +8,7 @@ ini_set('display_errors', 'On');
 require_once ( '/data/project/wdrc/scripts/WDRC.php' ) ;
 
 function finish ( $status = 'OK' ) {
-	global $out , $wdrc ;
-	$format = $wdrc->tfc->getRequest ( 'format' , 'json' ) ;
+	global $out , $wdrc , $format ;
 	$callback = $wdrc->tfc->getRequest ( 'callback' , '' ) ;
 	$out['status'] = $status ;
 	if ( $format == 'json' ) {
@@ -18,25 +17,56 @@ function finish ( $status = 'OK' ) {
 		print json_encode($out);
 		if ( $callback != '' ) print ")" ;
 	} else if ( $format == 'jsonl' ) {
-		header('Content-type: text/plain');
-		foreach ( $out['data']??[] AS $line ) {
-			print json_encode($line)."\n" ;
-		}
+		// Done in add_data()
+	} else if ( $format == 'html' ) {
+		// Done in add_data()
 	} else {
 		header('Content-type: text/html');
-		print "<pre>" ;
-		print json_encode($out,JSON_PRETTY_PRINT);
-		print "</pre>" ;
+		if ( !isset($out['data']) ) {
+			print "<pre>" ;
+			print json_encode($out,JSON_PRETTY_PRINT);
+			print "</pre>" ;
+		}
 	}
 
 	$wdrc->tfc->flush();
 	exit(0);
 }
 
+function add_data ( $d ) {
+	global $out , $format ;
+	if ( $format == 'jsonl' ) {
+		print json_encode($d)."\n" ;
+	} else if ( $format == 'html' ) {
+		$q = '' ;
+		$h = "<div>" ;
+		foreach ( $d as $k => $v ) {
+			$h .= "<span style='margin-right:0.5rem;'>" ;
+			if ( $k == 'item' ) {
+				$h .= "<a href='https://www.wikidata.org/wiki/{$v}' target='_blank'>{$v}</a>" ;
+				$q = $v ;
+			} else if ( $k == 'revision' ) {
+				$h .= "<a href='https://www.wikidata.org/w/index.php?title={$q}&oldid={$v}' target='_blank'>rev {$v}</a>" ; 
+			} else {
+				$h .= "{$k}: {$v}" ;
+			}
+			$h .= "</span>" ;
+		}
+		$h .= "</div>\n" ;
+		print $h ;
+	} else {
+		$out['data'][] = $d ;
+	}
+}
+
 $wdrc = new WDRC ;
 
 $out = [] ;
 $action = $wdrc->tfc->getRequest ( 'action' , '' ) ;
+$format = $wdrc->tfc->getRequest ( 'format' , 'json' ) ;
+if ( $format == 'jsonl' ) header('Content-type: text/plain');
+if ( $format == 'html' ) header('Content-type: text/html');
+
 
 if ( $action == 'lag' ) {
 
@@ -47,13 +77,13 @@ if ( $action == 'lag' ) {
 	$out['lag'] = "{$diff->y} years, {$diff->m} months, {$diff->d} days, {$diff->h} hours, {$diff->i} minutes, {$diff->s} seconds" ;
 	$out['lag'] = preg_replace ( '|^(0 \S+\s*)+|' , '' , $out['lag'] ) ;
 
-} else if ( $action == 'property' ) {
+} else if ( $action == 'properties' ) {
 
 	$db = $wdrc->get_db_tool() ;
 
-	$prop = $wdrc->tfc->getRequest ( 'property' , '' ) ; # Pxxx
-	$prop = preg_replace('|\D|','',$prop)*1 ;
-	if ( $prop == 0 ) finish ( 'Property ID required' ) ;
+	$props = $wdrc->tfc->getRequest ( 'properties' , '' ) ; # Pxxx
+	$props = preg_replace('|[^0-9,]|','',$props) ;
+	if ( $props == '' ) finish ( 'Property ID required' ) ;
 
 	$type = trim ( $wdrc->tfc->getRequest ( 'type' , '' ) ) ; # added,changed,removed
 	if ( $type == '' ) $type = [] ;
@@ -67,7 +97,7 @@ if ( $action == 'lag' ) {
 	if ( $since == '' ) finish ( '"since" parameter required (eg 20220101020304)' ) ;
 	while ( strlen($since) < 14 ) $since .= '0' ;
 
-	$sql = "SELECT * FROM `statements` WHERE `property`={$prop} AND `timestamp`>='{$since}'" ;
+	$sql = "SELECT * FROM `statements` WHERE `property` IN ({$props}) AND `timestamp`>='{$since}'" ;
 	if ( count($type)>0 ) $sql .= " AND `change_type` IN ('".implode("','",$type)."')" ;
 	$sql .= " ORDER BY `timestamp`" ;
 	#$out['sql'] = $sql ;
@@ -75,7 +105,8 @@ if ( $action == 'lag' ) {
 	$out['data'] = [] ;
 	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
 	while($o = $result->fetch_object()) {
-		$out["data"][] = ['item'=>"Q{$o->item}",'revision'=>$o->revision,'timestamp'=>$o->timestamp,'type'=>$o->change_type] ;
+		$d = ['item'=>"Q{$o->item}",'property'=>"P{$o->property}",'revision'=>$o->revision,'timestamp'=>$o->timestamp,'type'=>$o->change_type] ;
+		add_data ( $d ) ;
 	}
 
 } else if ( $action == 'text' ) {
@@ -122,7 +153,8 @@ if ( $action == 'lag' ) {
 	$out['data'] = [] ;
 	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
 	while($o = $result->fetch_object()) {
-		$out["data"][] = ['item'=>"Q{$o->item}",'revision'=>$o->revision,'timestamp'=>$o->timestamp,'type'=>$o->change_type,'element'=>$o->type,'text'=>$o->text] ;
+		$d = ['item'=>"Q{$o->item}",'revision'=>$o->revision,'timestamp'=>$o->timestamp,'type'=>$o->change_type,'element'=>$o->type,'text'=>$o->text] ;
+		add_data ( $d ) ;
 	}
 
 

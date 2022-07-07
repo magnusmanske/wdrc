@@ -1,0 +1,192 @@
+<!DOCTYPE HTML>
+<html><head>
+<META NAME="ROBOTS" CONTENT="NOINDEX, NOFOLLOW">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title tt="toolname"></title>
+<link rel="stylesheet" href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/4.0.0/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://tools-static.wmflabs.org/magnustools/resources/html/wikimedia.css">
+<script src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/twitter-bootstrap/4.0.0/js/bootstrap.bundle.min.js"></script>
+<script src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/vue/2.5.13/vue.min.js"></script>
+<script src="https://tools-static.wmflabs.org/cdnjs/ajax/libs/vue-router/3.0.1/vue-router.min.js"></script>
+<script src="https://tools-static.wmflabs.org/tooltranslate/tt.js"></script>
+<script src="https://tools-static.wmflabs.org/magnustools/resources/js/wikidata.js"></script>
+<script src="https://tools-static.wmflabs.org/magnustools/resources/vue/shared.js"></script>
+
+<style>
+.hidden_action {
+	display:none;
+}
+input[type="text"] {
+	width: 16rem;
+}
+</style>
+
+</head>
+
+<body>
+<div id='app' class='container'>
+	<div class='row'>
+		<h1>Wikidata Recent Changes API</h1>
+		<div class='lead'>
+			This API lets you query Wikidata edit by either properties, or labels/aliases/descriptions/sitelinks.
+			You can retrieve any changes, or specify added/changed/removed.
+			Current lag to Wikidata: <span id='lag'></span>.
+		</div>
+	</div>
+
+	<div class='row'>
+		<h2>Query by properties</h2>
+	</div>
+	<div class='row'>
+		<form class='inline-form' target='_blank' action='./api.php' method='GET'>
+			<input type='hidden' name='action' value='properties' />
+			<table class='table'>
+				<tr>
+					<th>Properties</th>
+					<td>
+						<input type='text' name='properties' placeholder="P131,P12345,..." />
+						<span style='color:red' title='required'>*</span>
+					</td>
+				</tr>
+				<tr>
+					<th>Since</th>
+					<td>
+						<input type='text' name='since' placeholder="20220707095700" />
+						<span style='color:red' title='required'>*</span>
+						<small>(shorter allowed)</small>
+					</td>
+				</tr>
+				<tr>
+					<th>Type</th>
+					<td>
+						<input type='text' name='type' placeholder="added,changed,removed" />
+						<small>(default: all)</small>
+					</td>
+				</tr>
+				<tr>
+					<th>Format</th>
+					<td>
+						<label>
+							<input type='radio' name='format' value='html' />
+							HTML
+						</label>
+						<label>
+							<input type='radio' name='format' value='json' />
+							JSON
+						</label>
+						<label>
+							<input type='radio' name='format' value='jsonl' checked />
+							JSONL
+						</label>
+						<small>(JSONL writes one JSON element per row, can return larger result sets)</small>
+					</td>
+				</tr>
+				<tr>
+					<td colspan='2'>
+						<input type='submit' class='btn btn-outline-primary' value='Run' />
+					</td>
+				</tr>
+			</table>
+		</form>
+	</div>
+
+	<div class='row'>
+		<h2>Query by text/sitelinks</h2>
+	</div>
+	<div class='row'>
+		<form class='inline-form' target='_blank' action='./api.php' method='GET'>
+			<input type='hidden' name='action' value='text' />
+			<table class='table'>
+				<tr>
+					<th>Element</th>
+					<td>
+						<input type='text' name='element' placeholder="labels,aliases,descriptions,sitelinks" />
+						<small>(default: all)</small>
+					</td>
+				</tr>
+				<tr>
+					<th>Site/language</th>
+					<td>
+						<input type='text' name='text' placeholder="de,enwiki,..." />
+					</td>
+				</tr>
+				<tr>
+					<th>Since</th>
+					<td>
+						<input type='text' name='since' placeholder="20220707095700" />
+						<span style='color:red' title='required'>*</span>
+						<small>(shorter allowed)</small>
+					</td>
+				</tr>
+				<tr>
+					<th>Type</th>
+					<td>
+						<input type='text' name='type' placeholder="added,changed,removed" />
+						<small>(default: all)</small>
+					</td>
+				</tr>
+				<tr>
+					<th>Format</th>
+					<td>
+						<label>
+							<input type='radio' name='format' value='html' />
+							HTML
+						</label>
+						<label>
+							<input type='radio' name='format' value='json' />
+							JSON
+						</label>
+						<label>
+							<input type='radio' name='format' value='jsonl' checked />
+							JSONL
+						</label>
+						<small>(JSONL writes one JSON element per row, can return larger result sets)</small>
+					</td>
+				</tr>
+				<tr>
+					<td colspan='2'>
+						<input type='submit' class='btn btn-outline-primary' value='Run' />
+					</td>
+				</tr>
+			</table>
+		</form>
+	</div>
+
+	<div class='row'>
+		<small><a href='https://github.com/magnusmanske/wdrc' target='_blank'>github</a></small>
+	</div>
+
+</div>
+</body>
+
+<script>
+'use strict';
+
+let router ;
+let app ;
+
+function update_lag () {
+	$.get ( './api.php' , {
+		action:'lag'
+	} , function ( d ) {
+		$('#lag').text(d.lag);
+		setTimeout ( update_lag , 60000 ) ; // 1 min
+	} ) ;
+}
+
+$(document).ready ( function () {
+	app = new Vue () .$mount('#app') ;
+	update_lag() ;
+/*
+	const routes = [
+	  { path: '/', component: MainPage , props:true },
+	  { path: '/:main_q', component: MainPage , props:true },
+	] ;
+	router = new VueRouter({routes}) ;
+	app = new Vue ( { router } ) .$mount('#app') ;
+*/
+} ) ;
+</script>
+
+</html>
