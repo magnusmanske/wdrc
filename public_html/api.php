@@ -2,7 +2,7 @@
 
 ini_set('memory_limit','1500M');
 
-error_reporting(E_ERROR|E_CORE_ERROR|E_COMPILE_ERROR); #|E_ALL
+error_reporting(E_ERROR|E_CORE_ERROR|E_COMPILE_ERROR|E_ALL); #
 ini_set('display_errors', 'On');
 
 require_once ( '/data/project/wdrc/scripts/WDRC.php' ) ;

@@ -168,7 +168,8 @@ let app ;
 
 function update_lag () {
 	$.get ( './api.php' , {
-		action:'lag'
+		action:'lag',
+		format:'json'
 	} , function ( d ) {
 		$('#lag').text(d.lag);
 		setTimeout ( update_lag , 60000 ) ; // 1 min
