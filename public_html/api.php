@@ -2,7 +2,7 @@
 
 ini_set('memory_limit','1500M');
 
-error_reporting(E_ERROR|E_CORE_ERROR|E_COMPILE_ERROR|E_ALL); #
+error_reporting(E_ERROR|E_CORE_ERROR|E_COMPILE_ERROR); #|E_ALL
 ini_set('display_errors', 'On');
 
 require_once ( '/data/project/wdrc/scripts/WDRC.php' ) ;
@@ -17,6 +17,7 @@ function finish ( $status = 'OK' ) {
 		print json_encode($out);
 		if ( $callback != '' ) print ")" ;
 	} else if ( $format == 'jsonl' ) {
+		if ( $status != 'OK' ) print "{$status}\n" ;
 		// Done in add_data()
 	} else if ( $format == 'html' ) {
 		// Done in add_data()
@@ -156,6 +157,39 @@ if ( $action == 'lag' ) {
 		$d = ['item'=>"Q{$o->item}",'revision'=>$o->revision,'timestamp'=>$o->timestamp,'type'=>$o->change_type,'element'=>$o->type,'text'=>$o->text] ;
 		add_data ( $d ) ;
 	}
+
+} else if ( $action == 'items' ) {
+
+	$out['data'] = [] ;
+	$db = $wdrc->get_db_tool() ;
+
+	$items = $wdrc->tfc->getRequest ( 'items' , '' ) ; # One Qid per line
+	$items = preg_replace('/[,;|]/',"\n",$items) ;
+	$items = explode ( "\n" , $items ) ;
+	$items_to_check = [] ;
+	foreach ( $items AS $q ) {
+		if ( preg_match('|^[Qq](\d+)$|',$q,$m) ) $items_to_check[] = $m[1] ;
+	}
+	if ( count($items_to_check) == 0 ) finish ( '"items" parameter is required and must me non-empty' ) ;
+	$items_to_check = implode(',',$items_to_check) ;
+
+	# Labels
+	$sql = "SELECT *,(SELECT `value` FROM `texts` WHERE `texts`.`id`=`language`) AS `text` FROM `labels` WHERE `timestamp`>='$since'" ;
+	$sql .= " AND `item` IN ({$items_to_check})" ;
+	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
+	while($o = $result->fetch_object()) {
+		$d = ['item'=>"Q{$o->item}",'revision'=>$o->revision,'timestamp'=>$o->timestamp,'type'=>$o->change_type,'element'=>$o->type,'text'=>$o->text] ;
+		add_data ( $d ) ;
+	}
+
+	$sql = "SELECT * FROM `statements` WHERE `timestamp`>='{$since}'" ;
+	$sql .= " AND `item` IN ({$items_to_check})" ;
+	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
+	while($o = $result->fetch_object()) {
+		$d = ['item'=>"Q{$o->item}",'property'=>"P{$o->property}",'revision'=>$o->revision,'timestamp'=>$o->timestamp,'type'=>$o->change_type] ;
+		add_data ( $d ) ;
+	}
+
 
 
 } else {
