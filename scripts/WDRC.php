@@ -157,18 +157,41 @@ class WDRC {
 	public function get_recent_changes () {
 		$dbwd = $this->get_dbwd() ;
 		$oldest = $this->get_key_value ( 'timestamp' ) ;
-		$sql = "SELECT * FROM `recentchanges` WHERE `rc_namespace`=0 AND `rc_timestamp`>=`{$oldest}` ORDER BY `rc_timestamp`,`rc_title`,`rc_id`" ;
+		$sql = "SELECT * FROM `recentchanges` WHERE `rc_namespace`=0 AND `rc_timestamp`>='{$oldest}' ORDER BY `rc_timestamp`,`rc_title`,`rc_id`" ;
 		$sql .= " LIMIT {$this->max_recent_changes}" ;
 		$result = $this->tfc->getSQL ( $dbwd , $sql ) ;
 		$ret = [] ;
+		$new_items = [];
 		while($o = $result->fetch_object()){
+			if ( $o->rc_new==1 ) $new_items[$o->rc_title] = (object) ['q'=>$o->rc_title,'timestamp'=>$o->rc_timestamp];
 			if ( !isset($ret[$o->rc_title]) ) {
 				$ret[$o->rc_title] = (object) ['q'=>$o->rc_title,'new'=>$o->rc_this_oldid,'old'=>$o->rc_last_oldid,'timestamp'=>$o->rc_timestamp] ;
 			} else {
 				if ( $ret[$o->rc_title]->new < $o->rc_this_oldid ) $ret[$o->rc_title]->new = $o->rc_this_oldid ;
 			}
 		}
-		return $ret ;
+		$new_items = array_values($new_items);
+		return (object) ["rc"=>$ret,"new"=>$new_items] ;
+	}
+
+	public function log_new_items($new_items) {
+		if ( count($new_items)==0 ) return;
+		$updates = [] ;
+		$delete_from_deleted = [];
+		foreach ( $new_items AS $o ) {
+			$q = str_replace('Q','',$o->q)*1 ;
+			$delete_from_deleted[] = $q ;
+			$updates[] = "({$q},'{$o->timestamp}')";
+		}
+
+		# Newly created items
+		$db = $this->get_db_tool();
+		$sql = "REPLACE INTO `creations` (`q`,`timestamp`) VALUES ".implode(',',$updates) ;
+		$this->runSQL($sql);
+
+		# Re-created items are no longer deleted...
+		$sql = "DELETE FROM `deletions` WHERE `q` IN (".implode(',',$delete_from_deleted).")";
+		$this->runSQL($sql);
 	}
 
 	public function update_recent_redirects () {

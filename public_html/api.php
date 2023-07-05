@@ -190,6 +190,25 @@ if ( $action == 'lag' ) {
 		add_data ( $d ) ;
 	}
 
+	# Redirects
+	$sql = "SELECT * FROM `redirects` WHERE `timestamp`>='{$since}'" ;
+	$sql .= " AND `source` IN ({$items_to_check})" ;
+	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
+	while($o = $result->fetch_object()) {
+		$d = ['item'=>"Q{$o->source}",'target'=>"Q{$o->target}",'timestamp'=>$o->timestamp,'type'=>'redirected'] ;
+		add_data ( $d ) ;
+	}
+
+
+	# Deletions
+	$sql = "SELECT * FROM `deletions` WHERE `timestamp`>='{$since}'" ;
+	$sql .= " AND `q` IN ({$items_to_check})" ;
+	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
+	while($o = $result->fetch_object()) {
+		$d = ['item'=>"Q{$o->q}",'timestamp'=>$o->timestamp,'type'=>'item_deleted'] ;
+		add_data ( $d ) ;
+	}
+
 } else if ( $action == 'redirects' ) {
 
 	$timestamp_from = trim ( $wdrc->tfc->getRequest ( 'since' , '' ) ) ;
@@ -207,8 +226,8 @@ if ( $action == 'lag' ) {
 	$out['sql'] = $sql ;
 	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
 	while($o = $result->fetch_object()) add_data([
-			"source" => $o->source*1,
-			"target" => $o->target*1,
+			"item" => 'Q'.$o->source,
+			"target" => 'Q'.$o->target,
 			"timestamp" => $o->timestamp,
 		]);
 
@@ -229,13 +248,34 @@ if ( $action == 'lag' ) {
 	$out['sql'] = $sql ;
 	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
 	while($o = $result->fetch_object()) add_data([
-			"q" => $o->q*1,
+			"item" => 'Q'.$o->q,
+			"timestamp" => $o->timestamp,
+		]);
+
+} else if ( $action == 'creations' ) {
+
+	$timestamp_from = trim ( $wdrc->tfc->getRequest ( 'since' , '' ) ) ;
+	$timestamp_to = trim ( $wdrc->tfc->getRequest ( 'until' , '' ) ) ;
+
+	# Validate that timestamps are numeric only, and at leat 4 chars (year) long; 'to' can be empty
+	if ( !preg_match('|^\d{4,14}$|',$timestamp_from) ) finish("Missing or faulty timestamp parameter 'since': {$timestamp_from}");
+	if ( $timestamp_to!='' and !preg_match('|^\d{4,14}$|',$timestamp_to) ) finish("Faulty timestamp parameter 'until': {$timestamp_to}");
+
+	$out['data'] = [] ;
+	$db = $wdrc->get_db_tool() ;
+	$sql = "SELECT * FROM `creations` WHERE `timestamp`>='{$timestamp_from}'";
+	if ( $timestamp_to!='' ) $sql .= "AND `timestamp`<='{$timestamp_to}'";
+	$sql .= " ORDER BY `timestamp`";
+	$out['sql'] = $sql ;
+	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
+	while($o = $result->fetch_object()) add_data([
+			"item" => 'Q'.$o->q,
 			"timestamp" => $o->timestamp,
 		]);
 
 } else {
 	$format = 'json';
-	$out['actions'] = ['lag','property','text','redirects','deletions'] ;
+	$out['actions'] = ['lag','property','text','redirects','creations','deletions'] ;
 	$out['format'] = ['json','jsonl','html'] ;
 }
 
