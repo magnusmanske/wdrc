@@ -45,6 +45,12 @@ function run_tests () {
 
 $command = $argv[1]??'' ;
 
+if ( $command = 'oneoff' ) {
+	$wdrc->update_recent_deletions();
+	// $wdrc->purge_old_entries();
+	exit(0);
+}
+
 if ( $command == 'tests' ) {
 	run_tests() ;
 	exit(0);
@@ -52,8 +58,11 @@ if ( $command == 'tests' ) {
 
 if ( $command == 'run' ) {
 	while ( 1 ) {
+		$wdrc->update_recent_redirects();
+		$wdrc->update_recent_deletions();
 		$recent_changes = $wdrc->get_recent_changes();
 		$wdrc->log_recent_changes_parallel ( $recent_changes ) ;
+		// $wdrc->purge_old_entries();
 	}
 	exit(0);
 }

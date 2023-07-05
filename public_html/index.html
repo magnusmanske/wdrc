@@ -202,6 +202,104 @@ input[type="text"] {
 	</div>
 
 	<div class='row'>
+		<h2>Redirects</h2>
+	</div>
+	<div class='row'>
+		<form class='inline-form' target='_blank' action='./api.php' method='GET'>
+			<input type='hidden' name='action' value='redirects' />
+			<table class='table'>
+				<tr>
+					<th>Since</th>
+					<td>
+						<input type='text' name='since' placeholder="20230705000000" />
+						<span style='color:red' title='required'>*</span>
+						<small>(shorter allowed)</small>
+					</td>
+				</tr>
+				<tr>
+					<th>Until</th>
+					<td>
+						<input type='text' name='until' placeholder="20230706000000" />
+						<small>(shorter allowed)</small>
+					</td>
+				</tr>
+				<tr>
+					<th>Format</th>
+					<td>
+						<label>
+							<input type='radio' name='format' value='html' />
+							HTML
+						</label>
+						<label>
+							<input type='radio' name='format' value='json' />
+							JSON
+						</label>
+						<label>
+							<input type='radio' name='format' value='jsonl' checked />
+							JSONL
+						</label>
+						<small>(JSONL writes one JSON element per row, can return larger result sets)</small>
+					</td>
+				</tr>
+				<tr>
+					<td colspan='2'>
+						<input type='submit' class='btn btn-outline-primary' value='Run' />
+					</td>
+				</tr>
+			</table>
+		</form>
+	</div>
+
+	<div class='row'>
+		<h2>Deletions</h2>
+	</div>
+	<div class='row'>
+		<form class='inline-form' target='_blank' action='./api.php' method='GET'>
+			<input type='hidden' name='action' value='deletions' />
+			<table class='table'>
+				<tr>
+					<th>Since</th>
+					<td>
+						<input type='text' name='since' placeholder="20230705000000" />
+						<span style='color:red' title='required'>*</span>
+						<small>(shorter allowed)</small>
+					</td>
+				</tr>
+				<tr>
+					<th>Until</th>
+					<td>
+						<input type='text' name='until' placeholder="20230706000000" />
+						<small>(shorter allowed)</small>
+					</td>
+				</tr>
+				<tr>
+					<th>Format</th>
+					<td>
+						<label>
+							<input type='radio' name='format' value='html' />
+							HTML
+						</label>
+						<label>
+							<input type='radio' name='format' value='json' />
+							JSON
+						</label>
+						<label>
+							<input type='radio' name='format' value='jsonl' checked />
+							JSONL
+						</label>
+						<small>(JSONL writes one JSON element per row, can return larger result sets)</small>
+					</td>
+				</tr>
+				<tr>
+					<td colspan='2'>
+						<input type='submit' class='btn btn-outline-primary' value='Run' />
+					</td>
+				</tr>
+			</table>
+		</form>
+	</div>
+
+	<div class='row'>
 		<small><a href='https://github.com/magnusmanske/wdrc' target='_blank'>github</a></small>
 	</div>
 

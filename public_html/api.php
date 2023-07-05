@@ -190,10 +190,52 @@ if ( $action == 'lag' ) {
 		add_data ( $d ) ;
 	}
 
+} else if ( $action == 'redirects' ) {
 
+	$timestamp_from = trim ( $wdrc->tfc->getRequest ( 'since' , '' ) ) ;
+	$timestamp_to = trim ( $wdrc->tfc->getRequest ( 'until' , '' ) ) ;
+
+	# Validate that timestamps are numeric only, and at leat 4 chars (year) long; 'to' can be empty
+	if ( !preg_match('|^\d{4,14}$|',$timestamp_from) ) finish("Missing or faulty timestamp parameter 'since': {$timestamp_from}");
+	if ( $timestamp_to!='' and !preg_match('|^\d{4,14}$|',$timestamp_to) ) finish("Faulty timestamp parameter 'until': {$timestamp_to}");
+
+	$out['data'] = [] ;
+	$db = $wdrc->get_db_tool() ;
+	$sql = "SELECT * FROM `redirects` WHERE `timestamp`>='{$timestamp_from}'";
+	if ( $timestamp_to!='' ) $sql .= "AND `timestamp`<='{$timestamp_to}'";
+	$sql .= " ORDER BY `timestamp`";
+	$out['sql'] = $sql ;
+	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
+	while($o = $result->fetch_object()) add_data([
+			"source" => $o->source*1,
+			"target" => $o->target*1,
+			"timestamp" => $o->timestamp,
+		]);
+
+} else if ( $action == 'deletions' ) {
+
+	$timestamp_from = trim ( $wdrc->tfc->getRequest ( 'since' , '' ) ) ;
+	$timestamp_to = trim ( $wdrc->tfc->getRequest ( 'until' , '' ) ) ;
+
+	# Validate that timestamps are numeric only, and at leat 4 chars (year) long; 'to' can be empty
+	if ( !preg_match('|^\d{4,14}$|',$timestamp_from) ) finish("Missing or faulty timestamp parameter 'since': {$timestamp_from}");
+	if ( $timestamp_to!='' and !preg_match('|^\d{4,14}$|',$timestamp_to) ) finish("Faulty timestamp parameter 'until': {$timestamp_to}");
+
+	$out['data'] = [] ;
+	$db = $wdrc->get_db_tool() ;
+	$sql = "SELECT * FROM `deletions` WHERE `timestamp`>='{$timestamp_from}'";
+	if ( $timestamp_to!='' ) $sql .= "AND `timestamp`<='{$timestamp_to}'";
+	$sql .= " ORDER BY `timestamp`";
+	$out['sql'] = $sql ;
+	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
+	while($o = $result->fetch_object()) add_data([
+			"q" => $o->q*1,
+			"timestamp" => $o->timestamp,
+		]);
 
 } else {
-	$out['actions'] = ['lag','property','text'] ;
+	$format = 'json';
+	$out['actions'] = ['lag','property','text','redirects','deletions'] ;
 	$out['format'] = ['json','jsonl','html'] ;
 }
 

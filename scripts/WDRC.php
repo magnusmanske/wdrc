@@ -8,6 +8,8 @@ class WDRC {
 	public $dbwd ;
 	public $db ;
 	public $text_cache ;
+	public $do_purge_old_entries = false ;
+	public $purge_days_ago = 90 ;
 	protected $max_recent_changes = 500 ;
 
 	public function __construct () {
@@ -155,7 +157,7 @@ class WDRC {
 	public function get_recent_changes () {
 		$dbwd = $this->get_dbwd() ;
 		$oldest = $this->get_key_value ( 'timestamp' ) ;
-		$sql = "SELECT * FROM `recentchanges` WHERE `rc_namespace`=0 AND `rc_timestamp`>={$oldest} ORDER BY `rc_timestamp`,`rc_title`,`rc_id`" ;
+		$sql = "SELECT * FROM `recentchanges` WHERE `rc_namespace`=0 AND `rc_timestamp`>=`{$oldest}` ORDER BY `rc_timestamp`,`rc_title`,`rc_id`" ;
 		$sql .= " LIMIT {$this->max_recent_changes}" ;
 		$result = $this->tfc->getSQL ( $dbwd , $sql ) ;
 		$ret = [] ;
@@ -168,6 +170,48 @@ class WDRC {
 		}
 		return $ret ;
 	}
+
+	public function update_recent_redirects () {
+		$dbwd = $this->get_dbwd() ;
+		$oldest = $this->get_key_value ( 'timestamp_redirect' ) ;
+		$sql = "SELECT `rc_title` AS `source`,`rd_title` AS `target`,max(`rc_timestamp`) AS `timestamp` FROM `recentchanges`,`redirect`
+			WHERE `rc_namespace`=0 AND `rd_from`=`rc_cur_id` AND `rd_namespace`=0 AND `rc_timestamp`>='{$oldest}' GROUP BY `source`,`target`";
+		$result = $this->tfc->getSQL ( $dbwd , $sql ) ;
+		$updates = [] ;
+		while($o = $result->fetch_object()) {
+			$source = str_replace('Q','',$o->source);
+			$target = str_replace('Q','',$o->target);
+			$updates[] = "({$source},{$target},'{$o->timestamp}')";
+			if ( $oldest<$o->timestamp ) $oldest = $o->timestamp;
+		}
+		if ( count($updates)==0 ) return ;
+
+		$db = $this->get_db_tool();
+		$sql = "REPLACE INTO `redirects` (`source`,`target`,`timestamp`) VALUES ".implode(',',$updates) ;
+		$this->runSQL($sql);
+		$this->set_key_value ( 'timestamp_redirect' , $oldest ) ;
+	}
+
+	public function update_recent_deletions () {
+		$dbwd = $this->get_dbwd() ;
+		$oldest = $this->get_key_value ( 'timestamp_deletion' ) ;
+		$sql = "SELECT `log_title` AS `q`,`log_timestamp` AS `timestamp` FROM `logging` WHERE `log_type`='delete' AND `log_action`='delete' AND `log_timestamp`>='{$oldest}' AND `log_namespace`=0";
+		$result = $this->tfc->getSQL ( $dbwd , $sql ) ;
+		$updates = [] ;
+		while($o = $result->fetch_object()) {
+			$q = str_replace('Q','',$o->q);
+			$updates[] = "({$q},'{$o->timestamp}')";
+			if ( $oldest<$o->timestamp ) $oldest = $o->timestamp;
+		}
+		if ( count($updates)==0 ) return ;
+
+		$db = $this->get_db_tool();
+		$sql = "REPLACE INTO `deletions` (`q`,`timestamp`) VALUES ".implode(',',$updates) ;
+		$this->runSQL($sql);
+		$this->set_key_value ( 'timestamp_deletion' , $oldest ) ;
+	}
+
+// 
 
 	protected function get_or_create_text_id ( $text ) {
 		if ( !isset($this->text_cache) ) {
@@ -272,6 +316,20 @@ class WDRC {
 			$this->log_changes($rc,$diff) ;
 		}
 		if ( $timestamp != '' ) $this->set_key_value('timestamp',$timestamp);
+	}
+
+	protected function get_timestamp ( $days_ago=0 ) {
+		$t = time() - $days_ago*60*60*24 ;
+		return date ( 'YmdHis' , $t ) ;
+	}
+
+	public function purge_old_entries () {
+		if ( !isset($this->do_purge_old_entries) ) return ;
+		$ts = $this->get_timestamp($this->purge_days_ago);
+		$sql = "DELETE FROM `labels` WHERE `timestamp`<'{$ts}'" ;
+		print "{$sql}\n" ;
+		$sql = "DELETE FROM `statements` WHERE `timestamp`<'{$ts}'" ;
+		print "{$sql}\n" ;
 	}
 
 }
