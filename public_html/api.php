@@ -16,10 +16,10 @@ function finish ( $status = 'OK' ) {
 		if ( $callback != '' ) print "{$callback}(" ;
 		print json_encode($out);
 		if ( $callback != '' ) print ")" ;
-	} else if ( $format == 'jsonl' ) {
+	} elseif ( $format == 'jsonl' ) {
 		if ( $status != 'OK' ) print "{$status}\n" ;
 		// Done in add_data()
-	} else if ( $format == 'html' ) {
+	} elseif ( $format == 'html' ) {
 		// Done in add_data()
 	} else {
 		header('Content-type: text/html');
@@ -36,36 +36,46 @@ function finish ( $status = 'OK' ) {
 
 $output_line_counter = 0 ;
 
-function add_data ( $d ) {
+function addDataJSONL ( $d ) {
+	global $wdrc , $output_line_counter ;
+	try {
+		print json_encode($d)."\n" ;
+		$output_line_counter++ ;
+		if ( $output_line_counter > 50 ) {
+			$wdrc->tfc->flush();
+			$output_line_counter = 0 ;
+		}
+	} catch (Exception $e) {
+		// Ignore
+	}
+}
+
+function addDataHTML ( $d ) {
 	global $out , $format , $wdrc , $output_line_counter ;
+	$q = '' ;
+	$h = "<div>" ;
+	foreach ( $d as $k => $v ) {
+		$h .= "<span style='margin-right:0.5rem;'>" ;
+		if ( $k == 'item' ) {
+			$h .= "<a href='https://www.wikidata.org/wiki/{$v}' target='_blank'>{$v}</a>" ;
+			$q = $v ;
+		} elseif ( $k == 'revision' ) {
+			$h .= "<a href='https://www.wikidata.org/w/index.php?title={$q}&oldid={$v}' target='_blank'>rev {$v}</a>" ; 
+		} else {
+			$h .= "{$k}: {$v}" ;
+		}
+		$h .= "</span>" ;
+	}
+	$h .= "</div>\n" ;
+	print $h ;
+}
+
+function addData ( $d ) {
+	global $out , $format ;
 	if ( $format == 'jsonl' ) {
-		try {
-			print json_encode($d)."\n" ;
-			$output_line_counter++ ;
-			if ( $output_line_counter > 50 ) {
-				$wdrc->tfc->flush();
-				$output_line_counter = 0 ;
-			}
-		} catch (Exception $e) {
-			// Ignore
-		}
-	} else if ( $format == 'html' ) {
-		$q = '' ;
-		$h = "<div>" ;
-		foreach ( $d as $k => $v ) {
-			$h .= "<span style='margin-right:0.5rem;'>" ;
-			if ( $k == 'item' ) {
-				$h .= "<a href='https://www.wikidata.org/wiki/{$v}' target='_blank'>{$v}</a>" ;
-				$q = $v ;
-			} else if ( $k == 'revision' ) {
-				$h .= "<a href='https://www.wikidata.org/w/index.php?title={$q}&oldid={$v}' target='_blank'>rev {$v}</a>" ; 
-			} else {
-				$h .= "{$k}: {$v}" ;
-			}
-			$h .= "</span>" ;
-		}
-		$h .= "</div>\n" ;
-		print $h ;
+		addDataJSONL( $d );
+	} elseif ( $format == 'html' ) {
+		addDataHTML( $d );
 	} else {
 		$out['data'][] = $d ;
 	}
@@ -89,7 +99,7 @@ if ( $action == 'lag' ) {
 	$out['lag'] = "{$diff->y} years, {$diff->m} months, {$diff->d} days, {$diff->h} hours, {$diff->i} minutes, {$diff->s} seconds" ;
 	$out['lag'] = preg_replace ( '|^(0 \S+\s*)+|' , '' , $out['lag'] ) ;
 
-} else if ( $action == 'properties' ) {
+} elseif ( $action == 'properties' ) {
 
 	$db = $wdrc->get_db_tool() ;
 
@@ -119,10 +129,10 @@ if ( $action == 'lag' ) {
 	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
 	while($o = $result->fetch_object()) {
 		$d = ['item'=>"Q{$o->item}",'property'=>"P{$o->property}",'revision'=>$o->revision,'timestamp'=>$o->timestamp,'type'=>$o->change_type] ;
-		add_data ( $d ) ;
+		addData ( $d ) ;
 	}
 
-} else if ( $action == 'text' ) {
+} elseif ( $action == 'text' ) {
 
 	$db = $wdrc->get_db_tool() ;
 
@@ -167,10 +177,10 @@ if ( $action == 'lag' ) {
 	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
 	while($o = $result->fetch_object()) {
 		$d = ['item'=>"Q{$o->item}",'revision'=>$o->revision,'timestamp'=>$o->timestamp,'type'=>$o->change_type,'element'=>$o->type,'text'=>$o->text] ;
-		add_data ( $d ) ;
+		addData ( $d ) ;
 	}
 
-} else if ( $action == 'items' ) {
+} elseif ( $action == 'items' ) {
 
 	$out['data'] = [] ;
 	$db = $wdrc->get_db_tool() ;
@@ -184,9 +194,17 @@ if ( $action == 'lag' ) {
 	$items = preg_replace('/[,;|]/',"\n",$items) ;
 	$items = explode ( "\n" , $items ) ;
 	$items_to_check = [] ;
-	foreach ( $items AS $q ) {
+	foreach ( $items as $q ) {
 		if ( preg_match('|^[Qq](\d+)$|',$q,$m) ) $items_to_check[] = $m[1] ;
 	}
+
+	if ( empty($items_to_check) ) {
+		$sparql = $wdrc->tfc->getRequest ( 'sparql' , '' ) ;
+		if ( $sparql!='' ) {
+			$items_to_check = $wdrc->tfc->getSPARQLitems($sparql);
+		}
+	}
+
 	if ( count($items_to_check) == 0 ) finish ( '"items" parameter is required and must me non-empty' ) ;
 	$items_to_check = implode(',',$items_to_check) ;
 
@@ -196,7 +214,7 @@ if ( $action == 'lag' ) {
 	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
 	while($o = $result->fetch_object()) {
 		$d = ['item'=>"Q{$o->item}",'revision'=>$o->revision,'timestamp'=>$o->timestamp,'type'=>$o->change_type,'element'=>$o->type,'text'=>$o->text] ;
-		add_data ( $d ) ;
+		addData ( $d ) ;
 	}
 
 	$sql = "SELECT * FROM `statements` WHERE `timestamp`>='{$since}'" ;
@@ -204,7 +222,7 @@ if ( $action == 'lag' ) {
 	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
 	while($o = $result->fetch_object()) {
 		$d = ['item'=>"Q{$o->item}",'property'=>"P{$o->property}",'revision'=>$o->revision,'timestamp'=>$o->timestamp,'type'=>$o->change_type] ;
-		add_data ( $d ) ;
+		addData ( $d ) ;
 	}
 
 	# Redirects
@@ -213,7 +231,7 @@ if ( $action == 'lag' ) {
 	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
 	while($o = $result->fetch_object()) {
 		$d = ['item'=>"Q{$o->source}",'target'=>"Q{$o->target}",'timestamp'=>$o->timestamp,'type'=>'redirected'] ;
-		add_data ( $d ) ;
+		addData ( $d ) ;
 	}
 
 	# Creations
@@ -222,7 +240,7 @@ if ( $action == 'lag' ) {
 	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
 	while($o = $result->fetch_object()) {
 		$d = ['item'=>"Q{$o->q}",'timestamp'=>$o->timestamp,'type'=>'item_created'] ;
-		add_data ( $d ) ;
+		addData ( $d ) ;
 	}
 	
 
@@ -232,10 +250,10 @@ if ( $action == 'lag' ) {
 	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
 	while($o = $result->fetch_object()) {
 		$d = ['item'=>"Q{$o->q}",'timestamp'=>$o->timestamp,'type'=>'item_deleted'] ;
-		add_data ( $d ) ;
+		addData ( $d ) ;
 	}
 
-} else if ( $action == 'redirects' ) {
+} elseif ( $action == 'redirects' ) {
 
 	$timestamp_from = trim ( $wdrc->tfc->getRequest ( 'since' , '' ) ) ;
 	$timestamp_to = trim ( $wdrc->tfc->getRequest ( 'until' , '' ) ) ;
@@ -251,13 +269,13 @@ if ( $action == 'lag' ) {
 	$sql .= " ORDER BY `timestamp`";
 	$out['sql'] = $sql ;
 	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
-	while($o = $result->fetch_object()) add_data([
+	while($o = $result->fetch_object()) addData([
 			"item" => 'Q'.$o->source,
 			"target" => 'Q'.$o->target,
 			"timestamp" => $o->timestamp,
 		]);
 
-} else if ( $action == 'deletions' ) {
+} elseif ( $action == 'deletions' ) {
 
 	$timestamp_from = trim ( $wdrc->tfc->getRequest ( 'since' , '' ) ) ;
 	$timestamp_to = trim ( $wdrc->tfc->getRequest ( 'until' , '' ) ) ;
@@ -273,12 +291,12 @@ if ( $action == 'lag' ) {
 	$sql .= " ORDER BY `timestamp`";
 	$out['sql'] = $sql ;
 	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
-	while($o = $result->fetch_object()) add_data([
+	while($o = $result->fetch_object()) addData([
 			"item" => 'Q'.$o->q,
 			"timestamp" => $o->timestamp,
 		]);
 
-} else if ( $action == 'creations' ) {
+} elseif ( $action == 'creations' ) {
 
 	$timestamp_from = trim ( $wdrc->tfc->getRequest ( 'since' , '' ) ) ;
 	$timestamp_to = trim ( $wdrc->tfc->getRequest ( 'until' , '' ) ) ;
@@ -294,7 +312,7 @@ if ( $action == 'lag' ) {
 	$sql .= " ORDER BY `timestamp`";
 	$out['sql'] = $sql ;
 	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
-	while($o = $result->fetch_object()) add_data([
+	while($o = $result->fetch_object()) addData([
 			"item" => 'Q'.$o->q,
 			"timestamp" => $o->timestamp,
 		]);
