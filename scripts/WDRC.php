@@ -1,6 +1,7 @@
 <?PHP
 
-require_once ( '/data/project/magnustools/public_html/php/ToolforgeCommon.php' ) ;
+// require_once ( '/data/project/magnustools/public_html/php/ToolforgeCommon.php' ) ;
+require_once ( getcwd().'/../../magnustools/public_html/php/ToolforgeCommon.php' ) ;
 
 class WDRC {
 	public $testing ;
@@ -142,9 +143,11 @@ class WDRC {
 
 	public function get_db_tool() {
 		try {
-			if ( !isset($this->db) ) $this->db = $this->tfc->openDBtool ( 'wdrc_p' ) ;
+			if ( !isset($this->db) ) {
+				$this->db = $this->tfc->openDBtool ( 'wdrc_p' , '' , 's55078' ) ;
+			}
 		} catch(Exception $e) {
-			sleep(0.5);
+			sleep(1);
 		}
 		return $this->db ;
 	}
@@ -325,12 +328,14 @@ class WDRC {
 	public function log_recent_changes_parallel ( $recent_changes ) {
 		$urls = [] ;
 		foreach ( $recent_changes AS $q => $rc) {
-			$urls[$q] = $this->get_revisions_url ( $q , $rc->old , $rc->new ) ;
+			if ( isset($rc->old) && isset($rc->new) ) {
+				$urls[$q] = $this->get_revisions_url ( $q , $rc->old , $rc->new ) ;
+			}
 		}
 		$timestamp = '' ;
 		$rc_data = $this->tfc->getMultipleURLsInParallel ( $urls ) ;
 		foreach ( $rc_data AS $q => $json_text ) {
-			$rc = $recent_changes[$q] ;
+			$rc = $recent_changes->$q ;
 			try {
 				$j = json_decode($json_text) ;
 				$revisions = $this->extract_revisions ( $q , $rc->old , $rc->new , $j ) ;

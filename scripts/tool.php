@@ -1,4 +1,4 @@
-#!/usr/bin/php
+#!/usr/bin/env php
 <?PHP
 
 require_once ( 'WDRC.php' ) ;
@@ -70,9 +70,10 @@ if ( $command == 'run' ) {
 
 $wdrc->testing = true ;
 if ( 1 ) {
-	$recent_changes = $wdrc->get_recent_changes();
+	#$recent_changes = $wdrc->get_recent_changes();
 	#$wdrc->log_recent_changes ( $recent_changes ) ;
-	$wdrc->log_recent_changes_parallel ( $recent_changes ) ;
+	#$wdrc->log_recent_changes_parallel ( $recent_changes ) ;
+	
 } else {
 	$q = 'Q179295' ;
 	$r_new = 1672076593 ;
