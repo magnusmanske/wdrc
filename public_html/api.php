@@ -2,7 +2,7 @@
 
 ini_set('memory_limit','1500M');
 
-error_reporting(E_ERROR|E_CORE_ERROR|E_COMPILE_ERROR); #|E_ALL
+error_reporting(E_ERROR|E_CORE_ERROR|E_COMPILE_ERROR|E_ALL); #
 ini_set('display_errors', 'On');
 
 require_once ( '/data/project/wdrc/scripts/WDRC.php' ) ;
@@ -34,10 +34,21 @@ function finish ( $status = 'OK' ) {
 	exit(0);
 }
 
+$output_line_counter = 0 ;
+
 function add_data ( $d ) {
-	global $out , $format ;
+	global $out , $format , $wdrc , $output_line_counter ;
 	if ( $format == 'jsonl' ) {
-		print json_encode($d)."\n" ;
+		try {
+			print json_encode($d)."\n" ;
+			$output_line_counter++ ;
+			if ( $output_line_counter > 50 ) {
+				$wdrc->tfc->flush();
+				$output_line_counter = 0 ;
+			}
+		} catch (Exception $e) {
+			// Ignore
+		}
 	} else if ( $format == 'html' ) {
 		$q = '' ;
 		$h = "<div>" ;
@@ -102,6 +113,7 @@ if ( $action == 'lag' ) {
 	if ( count($type)>0 ) $sql .= " AND `change_type` IN ('".implode("','",$type)."')" ;
 	$sql .= " ORDER BY `timestamp`" ;
 	#$out['sql'] = $sql ;
+	// print "{$sql}\n";
 
 	$out['data'] = [] ;
 	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;

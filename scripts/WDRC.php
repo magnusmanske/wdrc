@@ -141,7 +141,11 @@ class WDRC {
 	}
 
 	public function get_db_tool() {
-		if ( !isset($this->db) ) $this->db = $this->tfc->openDBtool ( 'wdrc_p' ) ;
+		try {
+			if ( !isset($this->db) ) $this->db = $this->tfc->openDBtool ( 'wdrc_p' ) ;
+		} catch(Exception $e) {
+			sleep(0.5);
+		}
 		return $this->db ;
 	}
 
@@ -349,10 +353,10 @@ class WDRC {
 	public function purge_old_entries () {
 		if ( !isset($this->do_purge_old_entries) ) return ;
 		$ts = $this->get_timestamp($this->purge_days_ago);
-		$sql = "DELETE FROM `labels` WHERE `timestamp`<'{$ts}'" ;
-		print "{$sql}\n" ;
-		$sql = "DELETE FROM `statements` WHERE `timestamp`<'{$ts}'" ;
-		print "{$sql}\n" ;
+		foreach ( ['labels','statements','creations','deletions','redirects'] as $table ) {
+			$sql = "DELETE FROM `{$table}` WHERE `timestamp`<'{$ts}'" ;
+			$this->runSQL ( $sql ) ;
+		}
 	}
 
 }
