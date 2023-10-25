@@ -216,6 +216,15 @@ if ( $action == 'lag' ) {
 		add_data ( $d ) ;
 	}
 
+	# Creations
+	$sql = "SELECT * FROM `creations` WHERE `timestamp`>='{$since}'" ;
+	$sql .= " AND `q` IN ({$items_to_check})" ;
+	$result = $wdrc->tfc->getSQL ( $db , $sql ) ;
+	while($o = $result->fetch_object()) {
+		$d = ['item'=>"Q{$o->q}",'timestamp'=>$o->timestamp,'type'=>'item_created'] ;
+		add_data ( $d ) ;
+	}
+	
 
 	# Deletions
 	$sql = "SELECT * FROM `deletions` WHERE `timestamp`>='{$since}'" ;
