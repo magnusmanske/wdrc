@@ -175,6 +175,11 @@ if ( $action == 'lag' ) {
 	$out['data'] = [] ;
 	$db = $wdrc->get_db_tool() ;
 
+	$since = $wdrc->tfc->getRequest ( 'since' , '' ) ; # 20220101020304
+	$since = preg_replace('|\D|','',$since) ;
+	if ( $since == '' ) finish ( '"since" parameter required (eg 20220101020304)' ) ;
+	while ( strlen($since) < 14 ) $since .= '0' ;
+
 	$items = $wdrc->tfc->getRequest ( 'items' , '' ) ; # One Qid per line
 	$items = preg_replace('/[,;|]/',"\n",$items) ;
 	$items = explode ( "\n" , $items ) ;
