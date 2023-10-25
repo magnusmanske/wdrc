@@ -201,7 +201,10 @@ if ( $action == 'lag' ) {
 	if ( empty($items_to_check) ) {
 		$sparql = $wdrc->tfc->getRequest ( 'sparql' , '' ) ;
 		if ( $sparql!='' ) {
-			$items_to_check = $wdrc->tfc->getSPARQLitems($sparql);
+			$items = $wdrc->tfc->getSPARQLitems($sparql);
+			foreach ( $items as $q ) {
+				if ( preg_match('|^[Qq](\d+)$|',$q,$m) ) $items_to_check[] = $m[1] ;
+			}
 		}
 	}
 
