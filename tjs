@@ -1,1 +1,1 @@
-toolforge-jobs run --image tf-php74 --continuous --mem 512Mi --command '/data/project/wdrc/scripts/tool.php run' background
+toolforge jobs run --mount all --image php8.2 --continuous --mem 1Gi --command '/data/project/wdrc/scripts/tool.php run' wdrc-bg

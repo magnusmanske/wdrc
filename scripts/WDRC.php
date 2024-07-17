@@ -1,7 +1,7 @@
 <?PHP
 
-// require_once ( '/data/project/magnustools/public_html/php/ToolforgeCommon.php' ) ;
-require_once ( getcwd().'/../../magnustools/public_html/php/ToolforgeCommon.php' ) ;
+require_once ( '/data/project/magnustools/public_html/php/ToolforgeCommon.php' ) ;
+// require_once ( getcwd().'/../../magnustools/public_html/php/ToolforgeCommon.php' ) ;
 
 class WDRC {
 	public $testing ;
@@ -235,25 +235,39 @@ class WDRC {
 		}
 		if ( count($updates)==0 ) return ;
 
+		$chunks = array_chunk($updates,500);
+		$updates = [];
 		$db = $this->get_db_tool();
-		$sql = "REPLACE INTO `deletions` (`q`,`timestamp`) VALUES ".implode(',',$updates) ;
-		$this->runSQL($sql);
+		foreach ( $chunks AS $updates ) {
+			$sql = "REPLACE INTO `deletions` (`q`,`timestamp`) VALUES ".implode(',',$updates) ;
+			try {
+				$this->runSQL($sql);
+			} catch(Exception $e) {
+				print "update_recent_deletions:".$e->getMessage()." for {$sql}\n" ;
+				exit(0);
+			}
+		}
 		$this->set_key_value ( 'timestamp_deletion' , $oldest ) ;
 	}
 
 // 
 
 	protected function get_or_create_text_id ( $text ) {
+		# Initialize text cache if required
 		if ( !isset($this->text_cache) ) {
+			print "Loading text cache\n";
 			$this->text_cache = [] ;
 			$db = $this->get_db_tool() ;
 			$sql = "SELECT * FROM `texts`" ;
 			$result = $this->tfc->getSQL ( $db , $sql ) ;
 			while($o = $result->fetch_object()) $this->text_cache[$o->value] = $o->id ;
+			unset($db);
 		}
+
 		if ( isset($this->text_cache[$text]) ) return $this->text_cache[$text] ;
 
 		# Add single text row
+		print "Adding text '{$text}'\n";
 		$db = $this->get_db_tool() ;
 		$text_unescaped = $text ;
 		$text = $db->real_escape_string ( $text ) ;
@@ -335,7 +349,7 @@ class WDRC {
 		$timestamp = '' ;
 		$rc_data = $this->tfc->getMultipleURLsInParallel ( $urls ) ;
 		foreach ( $rc_data AS $q => $json_text ) {
-			$rc = $recent_changes->$q ;
+			$rc = (object) $recent_changes[$q] ;
 			try {
 				$j = json_decode($json_text) ;
 				$revisions = $this->extract_revisions ( $q , $rc->old , $rc->new , $j ) ;
@@ -344,8 +358,10 @@ class WDRC {
 				continue ;
 			}
 			if ( $timestamp < $rc->timestamp ) $timestamp = $rc->timestamp ;
-			$diff = $this->compare_revisions ( $revisions[$rc->old] , $revisions[$rc->new] ) ;
-			$this->log_changes($rc,$diff) ;
+			if ( isset($revisions[$rc->old]) and isset($revisions[$rc->new]) ) {
+				$diff = $this->compare_revisions ( $revisions[$rc->old] , $revisions[$rc->new] ) ;
+				$this->log_changes($rc,$diff) ;
+			}
 		}
 		if ( $timestamp != '' ) $this->set_key_value('timestamp',$timestamp);
 	}
@@ -357,9 +373,10 @@ class WDRC {
 
 	public function purge_old_entries () {
 		if ( !isset($this->do_purge_old_entries) ) return ;
+		if ( !$this->do_purge_old_entries ) return ;
 		$ts = $this->get_timestamp($this->purge_days_ago);
 		foreach ( ['labels','statements','creations','deletions','redirects'] as $table ) {
-			$sql = "DELETE FROM `{$table}` WHERE `timestamp`<'{$ts}'" ;
+			$sql = "DELETE FROM `{$table}` WHERE `timestamp`<'{$ts}' LIMIT 10000" ;
 			$this->runSQL ( $sql ) ;
 		}
 	}
