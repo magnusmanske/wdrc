@@ -161,11 +161,18 @@ class WDRC {
 		$this->tfc->getSQL ( $db , $sql ) ;
 	}
 
-	public function get_recent_changes () {
-		$dbwd = $this->get_dbwd() ;
-		$oldest = $this->get_key_value ( 'timestamp' ) ;
-		$sql = "SELECT * FROM `recentchanges` WHERE `rc_namespace`=0 AND `rc_timestamp`>='{$oldest}' ORDER BY `rc_timestamp`,`rc_title`,`rc_id`" ;
-		$sql .= " LIMIT {$this->max_recent_changes}" ;
+	public function add_one_hour($ts) {
+		$ts = strtotime($ts);
+		$ts += 3600;
+		return date("YmdHis", $ts);
+	}
+
+	public function get_recent_changes() {
+		$dbwd = $this->get_dbwd();
+		$oldest = $this->get_key_value("timestamp");
+		$upper_limit = $this->add_one_hour($oldest); # For speedup
+		$sql = "SELECT * FROM `recentchanges` WHERE `rc_namespace`=0 AND `rc_timestamp`>='{$oldest}' AND `rc_timestamp`<='{$upper_limit}' ORDER BY `rc_timestamp`,`rc_title`,`rc_id`";
+		$sql .= " LIMIT {$this->max_recent_changes}";
 		$result = $this->tfc->getSQL ( $dbwd , $sql ) ;
 		$ret = [] ;
 		$new_items = [];
